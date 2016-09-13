@@ -25,7 +25,7 @@ RES1=sudo docker ps | grep "flexget"
 if [ "$RES" != "" ] || [ "$RES1" == "" ] ; then
 	echo "Starting flexget"
 	(sudo docker ps | grep "flexget") && sudo docker rm -f flexget;
-	sudo docker run --restart=always --privileged=true --name flexget --volumes-from flexget_data --link transmission -p 5050:5050 -e TRAKT_USERNAME=$2 -v $1:/root/Storage -d tokko/flexget:latest "/root/flexget.sh" "$2" 
+	sudo docker run --restart=always --privileged=true --name flexget --volumes-from flexget_data --link transmission -p 5050:5050 -e TRAKT_USERNAME=$2 -e TRAKT_ACCOUNT=$2 -v $1:/root/Storage -d tokko/flexget:latest "/root/flexget.sh" "$3" 
 fi
 
 data sickrage

@@ -142,13 +142,13 @@
           providers: [addic7ed, opensubtitles]
           single: no
 
-      cleanup:
-        priority: 6
-        clean_transmission:
-          host: transmission
-          port: 9091
-          username: transmission
-          password: transmission
-          finished_for: 12 hours
-          transmission_seed_limits: yes
-          enabled: yes
+      #cleanup:
+       # priority: 6
+       # clean_transmission:
+       #   host: transmission
+       #   port: 9091
+       #   username: transmission
+       #   password: transmission
+       #   finished_for: 12 hours
+       #   transmission_seed_limits: yes
+       #   enabled: yes
