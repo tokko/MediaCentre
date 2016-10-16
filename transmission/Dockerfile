@@ -16,6 +16,5 @@ RUN 	chown -R debian-transmission:debian-transmission /var/lib/transmission-daem
 	chown -R debian-transmission:debian-transmission /etc/transmission-daemon && \
 	chown -R debian-transmission:debian-transmission /root
 
-
 CMD /root/transmission.sh
 
