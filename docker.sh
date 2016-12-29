@@ -1,3 +1,4 @@
+#!/bin/bash
 sudo docker network create mediacentre
 
 sudo docker run -d --restart=always \
