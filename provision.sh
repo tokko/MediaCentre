@@ -3,7 +3,7 @@ curl -s https://packagecloud.io/install/repositories/Hypriot/Schatzkiste/script.
 sudo apt-get -y dist-upgrade
 sudo apt-get update
 sudo apt-get upgrade -y
-sudo apt-get install -y kodi docker-hypriot=1.10.3-1 docker-compose=1.9.0-23
+sudo apt-get install -y kodi docker-hypriot=1.10.3-1 docker-compose=1.9.0-23 python
 sudo sed -i -e "\$i service docker start\n" /etc/rc.local
 sudo perl -pi -e "s/ENABLED=0/ENABLED=1/g" /etc/default/kodi
 sudo systemctl enable docker
