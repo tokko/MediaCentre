@@ -18,7 +18,7 @@ sudo docker run -d --restart=always \
 -v $1/TV\ Shows:/media/ \
 -v $2:/root/Storage \
 --name=sickrage \
-napnap75/rpi-sickrage:latest
+tokko/sickrage:latest
 
 sudo docker run -d --restart=always \
 --name=couchpotato \
