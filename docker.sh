@@ -1,6 +1,6 @@
 #!/bin/bash
 sudo docker network create mediacentre
-sudo docker run -d --restart=always \
+sudo docker run -d --restart=unless-stopped \
 --net=mediacentre \
 --user root \
 -p 58846:58846 \
@@ -10,7 +10,7 @@ sudo docker run -d --restart=always \
 --name=deluge \
 jordancrawford/rpi-deluge
 
-sudo docker run -d --restart=always \
+sudo docker run -d --restart=unless-stopped \
 --net=mediacentre \
 --privileged=true \
 -p 8081:8081 \
@@ -20,7 +20,7 @@ sudo docker run -d --restart=always \
 --name=sickrage \
 tokko/sickrage:latest
 
-sudo docker run -d --restart=always \
+sudo docker run -d --restart=unless-stopped \
 --name=couchpotato \
 --privileged=true \
 -p 5050:5050 \
