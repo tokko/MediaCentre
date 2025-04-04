@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v2.11
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager  # Run on manager nodes for Swarm integration
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.traefik.rule=Host(`traefik.granbacken`)"
+        - "traefik.http.routers.traefik.service=api@internal"
+        - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+    ports:
+      - "80:80"    # HTTP
+      - "443:443"  # HTTPS
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Access Swarm metadata
+      - traefik_data:/data                            # Persistent storage
+    configs:
+      - source: traefik_config
+        target: /etc/traefik/traefik.yml
+    secrets:
+      - traefik_username
+      - traefik_password
+    networks:
+      - ingress_network
+
+volumes:
+  traefik_data:  # Persist certificates and logs
+
+configs:
+  traefik_config:
+    file: ./traefik.yml
+
+secrets:
+  traefik_username:
+    external: true
+  traefik_password:
+    external: true
+
+networks:
+  ingress_network:
+    external: true
+    name: ingress_network
+    driver: overlay
+    attachable: true

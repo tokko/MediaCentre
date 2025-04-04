@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.30.3
+    volumes:
+      - prometheus_data:/prometheus
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.prometheus.entrypoints=web"
+        - "traefik.http.routers.prometheus.rule=Host(`prometheus.granbacken`)"
+        - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+
+  grafana:
+    image: grafana/grafana:8.2.1
+    volumes:
+      - grafana_data:/var/lib/grafana
+    configs:
+      - source: grafana_datasource
+        target: /etc/grafana/provisioning/datasources/datasource.yml
+      - source: grafana_dashboard_provider
+        target: /etc/grafana/provisioning/dashboards/dashboard.yml
+      - source: grafana_dashboard
+        target: /var/lib/grafana/dashboards/prometheus.json
+      - source: grafana_node_dashboard
+        target: /var/lib/grafana/dashboards/node-exporter.json
+      - source: grafana_cadvisor_dashboard
+        target: /var/lib/grafana/dashboards/cadvisor.json
+      - source: grafana_adguard_dashboard
+        target: /var/lib/grafana/dashboards/adguard.json
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=password
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.grafana.rule=Host(`grafana.granbacken`)"
+        - "traefik.http.routers.grafana.entrypoints=web"
+        - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    deploy:
+      mode: global
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    networks:
+      - ingress_network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    deploy:
+      mode: global
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - ingress_network
+    ports:
+      - "8080:8080"
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+configs:
+  prometheus_config:
+    file: ./prometheus/prometheus.yml
+  grafana_datasource:
+    file: ./grafana/provisioning/datasources/datasource.yml
+  grafana_dashboard_provider:
+    file: ./grafana/provisioning/dashboards/dashboard.yml
+  grafana_dashboard:
+    file: ./grafana/dashboards/prometheus.json
+  grafana_cadvisor_dashboard:
+    file: ./grafana/dashboards/cadvisor.json
+  grafana_node_dashboard:
+    file: ./grafana/dashboards/node-exporter.json
+  grafana_adguard_dashboard:
+    file: ./grafana/dashboards/adguard.json
+
+networks:
+  ingress_network:
+    name: ingress_network
+    external: true

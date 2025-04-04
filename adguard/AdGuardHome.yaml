@@ -1,0 +1,21 @@
+schema_version: 29
+http:
+  address: 0.0.0.0:3000
+auth:
+  name: admin
+  password: "admin:$2y$05$lx1sGPnqtKHgdSQJnQw0geRif/xg0zLVUVWoJGt6aFGm9C6DgxBIm"  # Replace with bcrypt hash (e.g., from htpasswd -nb -B admin mypassword)
+dns:
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+  upstream_dns:
+    - 8.8.8.8
+    - 8.8.4.4
+  bootstrap_dns:
+    - 8.8.8.8
+    - 8.8.4.4
+  ratelimit: 20
+  cache_size: 4194304
+users:
+  - name: admin
+    password: "admin:$2y$05$lx1sGPnqtKHgdSQJnQw0geRif/xg0zLVUVWoJGt6aFGm9C6DgxBIm"
