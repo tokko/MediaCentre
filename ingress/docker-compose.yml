@@ -4,47 +4,43 @@ services:
   traefik:
     image: traefik:v2.11
     command:
-      - "--configFile=/etc/traefik/traefik.yml"
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.traefik.address=:8080"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.buckets=0.1,0.3,1.2,5.0"
+      - "--log.level=DEBUG"
     deploy:
       placement:
         constraints:
-          - node.role == manager  # Run on manager nodes for Swarm integration
+          - node.role == manager
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.traefik.rule=Host(`traefik.granbacken`)"
         - "traefik.http.routers.traefik.service=api@internal"
+        - "traefik.http.routers.traefik.entrypoints=web"  # Changed to web
         - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+        - "traefik.http.routers.metrics.rule=Host(`traefik.granbacken`) && Path(`/metrics`)"
+        - "traefik.http.routers.metrics.service=prometheus@internal"
+        - "traefik.http.routers.metrics.entrypoints=traefik"  # Metrics on 8080
     ports:
-      - "80:80"    # HTTP
-      - "443:443"  # HTTPS
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # Access Swarm metadata
-      - traefik_data:/data                            # Persistent storage
-    configs:
-      - source: traefik_config
-        target: /etc/traefik/traefik.yml
-    secrets:
-      - traefik_username
-      - traefik_password
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_data:/data
     networks:
       - ingress_network
 
 volumes:
-  traefik_data:  # Persist certificates and logs
-
-configs:
-  traefik_config:
-    file: ./traefik.yml
-
-secrets:
-  traefik_username:
-    external: true
-  traefik_password:
-    external: true
+  traefik_data:
 
 networks:
   ingress_network:
     external: true
-    name: ingress_network
-    driver: overlay
-    attachable: true

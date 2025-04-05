@@ -5,41 +5,31 @@ services:
     image: prom/prometheus:v2.30.3
     volumes:
       - prometheus_data:/prometheus
-    configs:
-      - source: prometheus_config
-        target: /etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - ingress_network
     deploy:
+      placement:
+        constraints: [node.role == manager]
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.prometheus.entrypoints=web"
         - "traefik.http.routers.prometheus.rule=Host(`prometheus.granbacken`)"
+        - "traefik.http.routers.prometheus.entrypoints=web"
         - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
 
   grafana:
     image: grafana/grafana:8.2.1
     volumes:
       - grafana_data:/var/lib/grafana
-    configs:
-      - source: grafana_datasource
-        target: /etc/grafana/provisioning/datasources/datasource.yml
-      - source: grafana_dashboard_provider
-        target: /etc/grafana/provisioning/dashboards/dashboard.yml
-      - source: grafana_dashboard
-        target: /var/lib/grafana/dashboards/prometheus.json
-      - source: grafana_node_dashboard
-        target: /var/lib/grafana/dashboards/node-exporter.json
-      - source: grafana_cadvisor_dashboard
-        target: /var/lib/grafana/dashboards/cadvisor.json
-      - source: grafana_adguard_dashboard
-        target: /var/lib/grafana/dashboards/adguard.json
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=password
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     networks:
       - ingress_network
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel  # Install plugin
     deploy:
+      placement:
+        constraints: [node.role == manager]
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.grafana.rule=Host(`grafana.granbacken`)"
@@ -47,24 +37,24 @@ services:
         - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
   node-exporter:
-    image: prom/node-exporter:v1.8.2
-    deploy:
-      mode: global
+    image: prom/node-exporter:v1.3.1
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+    networks:
+      - ingress_network
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--path.rootfs=/rootfs'
-    networks:
-      - ingress_network
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
     deploy:
       mode: global
+      placement:
+        constraints: [node.role == manager]
+
+  cadvisor:
+    image: zcube/cadvisor:latest
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -73,20 +63,19 @@ services:
       - /dev/disk/:/dev/disk:ro
     networks:
       - ingress_network
-    ports:
-      - "8080:8080"
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.role == manager]
 
   portainer:
     image: portainer/portainer-ce:latest
-    command: -H unix:///var/run/docker.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
     networks:
       - ingress_network
     deploy:
-      mode: replicated
-      replicas: 1
       placement:
         constraints: [node.role == manager]
       labels:
@@ -95,28 +84,33 @@ services:
         - "traefik.http.routers.portainer.entrypoints=web"
         - "traefik.http.services.portainer.loadbalancer.server.port=9000"
 
+  portainer-agent:
+    image: portainer/agent:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ingress_network
+    deploy:
+      mode: global  # Runs on all nodes
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ingress_network
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - DISABLE_HTTP=false
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
 volumes:
   prometheus_data:
   grafana_data:
   portainer_data:
 
-configs:
-  prometheus_config:
-    file: ./prometheus/prometheus.yml
-  grafana_datasource:
-    file: ./grafana/provisioning/datasources/datasource.yml
-  grafana_dashboard_provider:
-    file: ./grafana/provisioning/dashboards/dashboard.yml
-  grafana_dashboard:
-    file: ./grafana/dashboards/prometheus.json
-  grafana_cadvisor_dashboard:
-    file: ./grafana/dashboards/cadvisor.json
-  grafana_node_dashboard:
-    file: ./grafana/dashboards/node-exporter.json
-  grafana_adguard_dashboard:
-    file: ./grafana/dashboards/adguard.json
-
 networks:
   ingress_network:
-    name: ingress_network
     external: true

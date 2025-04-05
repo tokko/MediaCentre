@@ -23,7 +23,7 @@ curl -v -X POST http://localhost:3000/control/install/configure \
     },
     "auth": {
       "username": "admin",
-      "password": "mypassword"
+      "password": "password"
     }
   }' || {
   echo "API setup failed"
