@@ -38,6 +38,20 @@ services:
     networks:
       - ingress_network
 
+  unbound:
+    image: klutchell/unbound:latest
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver  # Run on mediaserver, same as Traefik
+    ports:
+      - "53:53/udp"  # Map DNS UDP port
+      - "53:53/tcp"  # Map DNS TCP port
+    volumes:
+      - ./unbound.conf:/etc/unbound/unbound.conf:ro  # Mount custom config
+    networks:
+      - ingress_network
+
 volumes:
   traefik_data:
 

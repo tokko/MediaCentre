@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  tor_proxy:
+    image: dperson/torproxy:latest
+    ports:
+      - "9050:9050"  # SOCKS5 port
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+  transmission:
+    image: haugene/transmission-openvpn:latest
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - OPENVPN_PROVIDER=NORDVPN
+      - OPENVPN_USERNAME=6LF3z2srZKveb6qm6hiUJUmx  # Your NordVPN username
+      - OPENVPN_PASSWORD=ZEC6inpHbH8psyHL1TguLeV4  # Your NordVPN password
+      - OPENVPN_CONFIG=sg514  # Replace with your preferred NordVPN server (e.g., us1234)
+      - TRANSMISSION_DOWNLOAD_DIR=/downloads/completed
+      - TRANSMISSION_INCOMPLETE_DIR=/downloads/incomplete
+      - LOCAL_NETWORK=192.168.68.0/24  # Adjust to match your local network
+    volumes:
+      - /mnt/nfs_share/media/downloads:/downloads
+      - /mnt/nfs_share/media/config/transmission:/config
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.transmission.rule=Host(`transmission.granbacken`)"
+        - "traefik.http.routers.transmission.entrypoints=web"
+        - "traefik.http.services.transmission.loadbalancer.server.port=9091"
+    cap_add:
+      - NET_ADMIN  # Required for VPN functionality
+
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    environment:
+      - PUID=911
+      - PGID=911
+      - LOG_LEVEL=trace
+      - PROXY_HOST=tor_proxy
+      - PROXY_PORT=9050
+    volumes:
+      - /mnt/nfs_share/media/config/prowlarr:/config
+      - ./prowlarr-indexers/Custom:/config/Indexers
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.granbacken`)"
+        - "traefik.http.routers.prowlarr.entrypoints=web"
+        - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+
+  sonarr:
+    image: linuxserver/sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /mnt/nfs_share/media/config/sonarr:/config
+      - /mnt/nfs_share/media/tv:/tv
+      - /mnt/nfs_share/media/downloads:/downloads
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.sonarr.rule=Host(`sonarr.granbacken`)"
+        - "traefik.http.routers.sonarr.entrypoints=web"
+        - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+
+  radarr:
+    image: linuxserver/radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /mnt/nfs_share/media/config/radarr:/config
+      - /mnt/nfs_share/media/movies:/movies
+      - /mnt/nfs_share/media/downloads:/downloads
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.radarr.rule=Host(`radarr.granbacken`)"
+        - "traefik.http.routers.radarr.entrypoints=web"
+        - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+
+  lidarr:
+    image: linuxserver/lidarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /mnt/nfs_share/media/config/lidarr:/config
+      - /mnt/nfs_share/media/music:/music
+      - /mnt/nfs_share/media/downloads:/downloads
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.lidarr.rule=Host(`lidarr.granbacken`)"
+        - "traefik.http.routers.lidarr.entrypoints=web"
+        - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
+
+  overseerr:
+    image: sctx/overseerr:latest  # Add :latest for clarity
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Stockholm  # Add timezone for consistency
+    volumes:
+      - /mnt/nfs_share/media/config/overseerr:/app/config  # Correct path
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.overseerr.rule=Host(`overseerr.granbacken`)"
+        - "traefik.http.routers.overseerr.entrypoints=web"
+        - "traefik.http.services.overseerr.loadbalancer.server.port=5055"
+
+  plex:
+    image: linuxserver/plex
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - PLEX_CLAIM=claim-fVcPQGeBVfDqcbYBx1r_
+    volumes:
+      - /mnt/nfs_share/media/config/plex:/config
+      - /mnt/nfs_share/media/movies:/movies
+      - /mnt/nfs_share/media/tv:/tv
+      - /mnt/nfs_share/media/music:/music
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.plex.rule=Host(`plex.granbacken`)"
+        - "traefik.http.routers.plex.entrypoints=web"
+        - "traefik.http.services.plex.loadbalancer.server.port=32400"
+
+networks:
+  ingress_network:
+    external: true
