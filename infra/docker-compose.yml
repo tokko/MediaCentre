@@ -1,73 +1,6 @@
 version: '3.8'
 
 services:
-  prometheus:
-    image: prom/prometheus:v2.30.3
-    volumes:
-      - prometheus_data:/prometheus
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - ingress_network
-    deploy:
-      placement:
-        constraints: [node.role == manager]
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.prometheus.rule=Host(`prometheus.granbacken`)"
-        - "traefik.http.routers.prometheus.entrypoints=web"
-        - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
-
-  grafana:
-    image: grafana/grafana:8.2.1
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
-    networks:
-      - ingress_network
-    environment:
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel  # Install plugin
-    deploy:
-      placement:
-        constraints: [node.role == manager]
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.grafana.rule=Host(`grafana.granbacken`)"
-        - "traefik.http.routers.grafana.entrypoints=web"
-        - "traefik.http.services.grafana.loadbalancer.server.port=3000"
-
-  node-exporter:
-    image: prom/node-exporter:v1.3.1
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    networks:
-      - ingress_network
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/rootfs'
-    deploy:
-      mode: global
-      placement:
-        constraints: [node.role == manager]
-
-  cadvisor:
-    image: zcube/cadvisor:latest
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    networks:
-      - ingress_network
-    deploy:
-      mode: global
-      placement:
-        constraints: [node.role == manager]
-
   portainer:
     image: portainer/portainer-ce:latest
     volumes:
@@ -83,6 +16,7 @@ services:
         - "traefik.http.routers.portainer.rule=Host(`portainer.granbacken`)"
         - "traefik.http.routers.portainer.entrypoints=web"
         - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+        - "traefik.docker.network=ingress_network"
 
   portainer-agent:
     image: portainer/agent:latest
@@ -91,7 +25,8 @@ services:
     networks:
       - ingress_network
     deploy:
-      mode: global  # Runs on all nodes
+      mode: global
+
   watchtower:
     image: containrrr/watchtower
     volumes:
@@ -107,8 +42,6 @@ services:
         constraints: [node.role == manager]
 
 volumes:
-  prometheus_data:
-  grafana_data:
   portainer_data:
 
 networks:

@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.30.3
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.prometheus.rule=Host(`prometheus.granbacken`)"
+        - "traefik.http.routers.prometheus.entrypoints=web"
+        - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+        - "traefik.docker.network=ingress_network"
+
+  grafana:
+    image: grafana/grafana:8.2.1
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - ingress_network
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.grafana.rule=Host(`grafana.granbacken`)"
+        - "traefik.http.routers.grafana.entrypoints=web"
+        - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+        - "traefik.docker.network=ingress_network"
+
+  node-exporter:
+    image: prom/node-exporter:v1.3.1
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - ingress_network
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.role == manager]
+
+  cadvisor:
+    image: zcube/cadvisor:latest
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /etc/machine-id:/etc/machine-id:ro  # Added    
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - ingress_network
+    user: "0:0"  # Run as root
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.role == manager]
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - ingress_network
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Limit memory
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:
+          memory: 1g
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.0
+    volumes:
+     - /home/pi/MediaCentre/monitoring/config/kibana.yml:/usr/share/kibana/config/kibana.yml
+    networks:
+      - ingress_network
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.kibana.rule=Host(`kibana.granbacken`)"
+        - "traefik.http.routers.kibana.entrypoints=web"
+        - "traefik.http.services.kibana.loadbalancer.server.port=5601"
+        - "traefik.docker.network=ingress_network"
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+         memory: 128m
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.14.0
+    volumes:
+      - /home/pi/MediaCentre/monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeat_logs:/var/log/filebeat
+      - filebeat_data:/usr/share/filebeat/data
+    networks:
+      - ingress_network
+    user: root
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - KIBANA_HOST=http://kibana:5601
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 64m
+    depends_on:
+      - elasticsearch
+      - kibana
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+  filebeat_data:
+  filebeat_logs:
+
+networks:
+  ingress_network:
+    external: true
