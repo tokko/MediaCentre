@@ -45,8 +45,8 @@ services:
         constraints:
           - node.hostname == mediaserver  # Run on mediaserver, same as Traefik
     ports:
-      - "53:53/udp"  # Map DNS UDP port
-      - "53:53/tcp"  # Map DNS TCP port
+      - "54:53/udp"  # Map DNS UDP port
+      - "54:53/tcp"  # Map DNS TCP port
     volumes:
       - ./unbound.conf:/etc/unbound/unbound.conf:ro  # Mount custom config
     networks:

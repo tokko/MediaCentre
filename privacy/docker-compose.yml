@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  adguard:
+    image: adguard/adguardhome:latest
+    volumes:
+      - /mnt/nfs_share/privacy/work:/opt/adguardhome/work
+      - /mnt/nfs_share/privacy/conf:/opt/adguardhome/conf
+    networks:
+      - ingress_network
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8081:80"
+    deploy:
+      placement:
+        constraints: [node.hostname == mediaserver]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.adguard.rule=Host(`adguard.granbacken`)"
+        - "traefik.http.routers.adguard.entrypoints=web"
+        - "traefik.http.services.adguard.loadbalancer.server.port=80"
+        - "traefik.http.services.adguard.loadbalancer.passhostheader=true"
+        - "traefik.http.services.adguard.loadbalancer.sticky=true"
+        - "traefik.http.services.adguard.loadbalancer.sticky.cookie.name=adguard_session"
+        - "traefik.http.services.adguard.loadbalancer.sticky.cookie.httponly=true"
+        - "traefik.docker.network=ingress_network"
+
+  privoxy:
+    image: dockage/tor-privoxy:latest
+    volumes:
+      - /mnt/nfs_share/privacy/privoxy:/etc/privoxy
+    ports:
+      - "8118:8118/tcp"
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints: [node.hostname == mediaserver]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.privoxy.rule=Host(`privoxy.granbacken`)"
+        - "traefik.http.routers.privoxy.entrypoints=web"
+        - "traefik.http.services.privoxy.loadbalancer.server.port=8118"
+        - "traefik.http.services.privoxy.loadbalancer.passhostheader=true"
+        - "traefik.docker.network=ingress_network"
+
+networks:
+  ingress_network:
+    external: true
