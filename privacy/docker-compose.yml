@@ -18,7 +18,8 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.adguard.rule=Host(`adguard.granbacken`)"
-        - "traefik.http.routers.adguard.entrypoints=web"
+        - "traefik.http.routers.adguard.entrypoints=web,websecure"
+        - "traefik.http.routers.adguard.tls=true"
         - "traefik.http.services.adguard.loadbalancer.server.port=80"
         - "traefik.http.services.adguard.loadbalancer.passhostheader=true"
         - "traefik.http.services.adguard.loadbalancer.sticky=true"
@@ -40,7 +41,8 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.privoxy.rule=Host(`privoxy.granbacken`)"
-        - "traefik.http.routers.privoxy.entrypoints=web"
+        - "traefik.http.routers.privoxy.entrypoints=web,websecure"
+        - "traefik.http.routers.privoxy.tls=true"
         - "traefik.http.services.privoxy.loadbalancer.server.port=8118"
         - "traefik.http.services.privoxy.loadbalancer.passhostheader=true"
         - "traefik.docker.network=ingress_network"

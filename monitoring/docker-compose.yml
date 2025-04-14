@@ -5,7 +5,7 @@ services:
     image: prom/prometheus:v2.30.3
     volumes:
       - prometheus_data:/prometheus
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /home/pi/MediaCentre/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - ingress_network
     deploy:
@@ -14,16 +14,20 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.prometheus.rule=Host(`prometheus.granbacken`)"
-        - "traefik.http.routers.prometheus.entrypoints=web"
+        - "traefik.http.routers.prometheus.entrypoints=web,websecure"
+        - "traefik.http.routers.prometheus.tls=true"
         - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
         - "traefik.docker.network=ingress_network"
+      resources:
+        limits:
+          memory: 512m
 
   grafana:
     image: grafana/grafana:8.2.1
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - /home/pi/MediaCentre/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - /home/pi/MediaCentre/monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     networks:
       - ingress_network
     environment:
@@ -34,9 +38,13 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.grafana.rule=Host(`grafana.granbacken`)"
-        - "traefik.http.routers.grafana.entrypoints=web"
+        - "traefik.http.routers.grafana.entrypoints=web,websecure"
+        - "traefik.http.routers.grafana.tls=true"
         - "traefik.http.services.grafana.loadbalancer.server.port=3000"
         - "traefik.docker.network=ingress_network"
+      resources:
+        limits:
+          memory: 512m
 
   node-exporter:
     image: prom/node-exporter:v1.3.1
@@ -62,15 +70,20 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-      - /etc/machine-id:/etc/machine-id:ro  # Added    
       - /dev/disk/:/dev/disk:ro
+      - /etc/machine-id:/etc/machine-id:ro
     networks:
       - ingress_network
-    user: "0:0"  # Run as root
+    user: "0:0"
     deploy:
       mode: global
       placement:
         constraints: [node.role == manager]
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 64m
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
@@ -81,18 +94,20 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Limit memory
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
     deploy:
       placement:
         constraints: [node.role == manager]
       resources:
         limits:
-          memory: 1g
+          memory: 512m
+        reservations:
+          memory: 256m
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.14.0
     volumes:
-     - /home/pi/MediaCentre/monitoring/config/kibana.yml:/usr/share/kibana/config/kibana.yml
+      - /home/pi/MediaCentre/monitoring/config/kibana.yml:/usr/share/kibana/config/kibana.yml
     networks:
       - ingress_network
     environment:
@@ -103,14 +118,18 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.kibana.rule=Host(`kibana.granbacken`)"
-        - "traefik.http.routers.kibana.entrypoints=web"
+        - "traefik.http.routers.kibana.entrypoints=web,websecure"
+        - "traefik.http.routers.kibana.tls=true"
         - "traefik.http.services.kibana.loadbalancer.server.port=5601"
+        - "traefik.http.services.kibana.loadbalancer.healthcheck.path=/api/status"
+        - "traefik.http.services.kibana.loadbalancer.healthcheck.interval=15s"
+        - "traefik.http.services.kibana.loadbalancer.healthcheck.timeout=10s"
         - "traefik.docker.network=ingress_network"
       resources:
         limits:
           memory: 256m
         reservations:
-         memory: 128m
+          memory: 128m
     depends_on:
       - elasticsearch
 
