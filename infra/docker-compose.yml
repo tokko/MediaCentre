@@ -42,8 +42,26 @@ services:
       placement:
         constraints: [node.role == manager]
 
+  registry:
+    image: registry:2
+    volumes:
+      - registry_data:/var/lib/registry
+    ports:
+      - "5000:5000"
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 64m
+
 volumes:
   portainer_data:
+  registry_data:
 
 networks:
   ingress_network:
