@@ -37,7 +37,7 @@ XIAOMI_PASSWORD = read_secret("xiaomi_password")
 def get_cloud_client():
     """Initialize Xiaomi Cloud client."""
     if not XIAOMI_USERNAME or not XIAOMI_PASSWORD:
-        app.logger.error("Missing credentials")
+        app.logger.error("Missing Xiaomi credentials")
         return None
     try:
         cloud = MiCloud(XIAOMI_USERNAME, XIAOMI_PASSWORD)
@@ -145,7 +145,7 @@ def list_vacuums():
                 description: Local IP address of the vacuum
               model:
                 type: string
-                description: Model of the vacuum (e.g., roborock.vacuum.a15)
+                description: Model of the vacuum (e.g., roborock.vacuum.s5)
               device_id:
                 type: string
                 description: Unique device ID for cloud control
