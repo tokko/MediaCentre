@@ -116,7 +116,8 @@ def control_vacuums(action, device_id=None):
                 status = "Started"
             elif action == "stop":
                 vac["device"].stop()
-                status = "Stopped"
+                vac["device"].home()
+                status = "Stopped and sent to dock"
             elif action == "pause":
                 vac["device"].pause()
                 status = "Paused"
@@ -201,7 +202,7 @@ def start():
 
 @app.route('/stop')
 def stop():
-    """Stop Xiaomi vacuums.
+    """Stop Xiaomi vacuums and send them to the dock.
     ---
     tags:
       - Vacuums
@@ -210,15 +211,15 @@ def stop():
         in: query
         type: string
         required: false
-        description: Optional device ID to stop a specific vacuum (e.g., 506521493); if omitted, stops all vacuums
+        description: Optional device ID to stop and send a specific vacuum to the dock (e.g., 506521493); if omitted, stops and docks all vacuums
     responses:
       200:
-        description: Status of stop action
+        description: Status of stop and dock action
         schema:
           type: string
         examples:
           text/html: >
-            "Vacuum 192.168.68.2 (roborock.vacuum.a15): Stopped<br>Vacuum 192.168.68.21 (roborock.vacuum.s5): Stopped"
+            "Vacuum 192.168.68.2 (roborock.vacuum.a15): Stopped and sent to dock<br>Vacuum 192.168.68.21 (roborock.vacuum.s5): Stopped and sent to dock"
       404:
         description: Vacuum not found (if device_id is invalid)
         schema:
