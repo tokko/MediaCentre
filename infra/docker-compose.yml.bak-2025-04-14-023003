@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.portainer.rule=Host(`portainer.granbacken`)"
+        - "traefik.http.routers.portainer.entrypoints=web,websecure"
+        - "traefik.http.routers.portainer.tls=true"
+        - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+        - "traefik.docker.network=ingress_network"
+
+  portainer-agent:
+    image: portainer/agent:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ingress_network
+    deploy:
+      mode: global
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ingress_network
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - DISABLE_HTTP=false
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+volumes:
+  portainer_data:
+
+networks:
+  ingress_network:
+    external: true
