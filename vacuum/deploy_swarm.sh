@@ -4,14 +4,20 @@
 
 cd ~/MediaCentre/vacuum
 
-# Build Docker image
-docker build --no-cache -t mediaserver:5000/vacuum:latest .
+# Build vacuum image
+docker build -f vacuum/Dockerfile -t mediaserver:5000/vacuum:latest vacuum
 
-# Upload to registry
+# Build Node-RED image
+docker build -f nodered/Dockerfile -t mediaserver:5000/nodered:latest nodered
+
+# Upload images to registry
 docker push mediaserver:5000/vacuum:latest
+docker push mediaserver:5000/nodered:latest
 
 # Deploy Swarm stack
 docker stack deploy -c docker-compose.yml vacuum
 
 echo "Deployment complete. Access API at https://vacuum.granbacken/list"
-echo "Swagger UI at https://vacuum.granbacken/docs"
+echo "Swagger UI at https://vacuum.granbacken/apidocs"
+echo "Plejd webhook at https://vacuum.granbacken/plejd"
+echo "Node-RED at https://vacuum.granbacken/nodered"
