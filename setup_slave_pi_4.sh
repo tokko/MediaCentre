@@ -13,7 +13,7 @@ echo "Starting Raspberry Pi 4 (1GB) update and configuration..."
 
 # Step 1: Consolidated system update, upgrade, and package installation
 echo "Updating system and installing packages..."
-apt-get update && apt-get full-upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends nfs-common raspi-config vim git gcc python3-dev rpi-update && apt-get autoremove -y && apt-get autoclean -y
+apt-get update && apt-get full-upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends nfs-common raspi-config vim git gcc python3-dev rpi-update network-manager && apt-get autoremove -y && apt-get autoclean -y
 
 # Step 2: Raspberry Pi-specific updates
 echo "Applying Raspberry Pi-specific updates..."
@@ -43,29 +43,14 @@ if [ -f "$SWAP_FILE" ]; then
   systemctl restart dphys-swapfile
 fi
 
-# Step 3: Configure Wi-Fi for Anik-IoT
+# Step 3: Configure Wi-Fi for Anik-IoT using nmcli
 echo "Configuring Wi-Fi for Anik-IoT..."
-WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
-# Backup existing Wi-Fi config
-if [ -f "$WPA_CONF" ]; then
-  cp "$WPA_CONF" "${WPA_CONF}.bak"
-fi
-# Write Wi-Fi configuration
-cat << EOF > "$WPA_CONF"
-ctrl_interface=DIR=/var/run/ wpa_passphrase=run/wpa_supplicant GROUP=netdev
-update_config=1
-country=US
-
-network={
-    ssid="Anik-IoT"
-    psk="Granbacken2022"
-}
-EOF
-# Restart networking to apply Wi-Fi
-systemctl restart wpa_supplicant
+nmcli device wifi rescan
+sleep 2  # Wait for scan to complete
+nmcli device wifi connect "Anik-IoT" password "Granbacken2022"
 sleep 5  # Wait for connection
 # Verify Wi-Fi connection
-if iwconfig wlan0 | grep -q "Anik-IoT"; then
+if nmcli connection show --active | grep -q "Anik-IoT"; then
   echo "Wi-Fi connected to Anik-IoT"
 else
   echo "Wi-Fi connection failed. Check SSID, password, or signal."
