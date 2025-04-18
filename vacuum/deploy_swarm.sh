@@ -8,11 +8,15 @@ cd ~/MediaCentre/vacuum
 docker build -f vacuum/Dockerfile -t mediaserver:5000/vacuum:latest vacuum
 
 # Build Node-RED image
-docker build -f nodered/Dockerfile -t mediaserver:5000/nodered:latest nodered
+# docker build -f nodered/Dockerfile -t mediaserver:5000/nodered:latest nodered
+
+# Build alarm_poller image
+docker build -f alarm/Dockerfile -t mediaserver:5000/alarm_poller:latest alarm
 
 # Upload images to registry
 docker push mediaserver:5000/vacuum:latest
-docker push mediaserver:5000/nodered:latest
+#docker push mediaserver:5000/nodered:latest
+docker push mediaserver:5000/alarm_poller:latest
 
 # Deploy Swarm stack
 docker stack deploy -c docker-compose.yml vacuum

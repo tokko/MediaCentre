@@ -26,9 +26,8 @@ services:
       - xiaomi_password
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-
-  vacuum_plejd:
-    image-arg: mediaserver:5000/vacuum:latest
+  alarm_poller:
+    image: mediaserver:5000/alarm_poller:latest
     networks:
       - ingress_network
     deploy:
@@ -36,50 +35,15 @@ services:
       placement:
         constraints: [] # Allow on any node
       labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.vacuum-plejd.rule=Host(`vacuum.granbacken`) && PathPrefix(`/plejd`)"
-        - "traefik.http.routers.vacuum-plejd.entrypoints=web,websecure"
-        - "traefik.http.routers.vacuum-plejd.tls=true"
-        - "traefik.http.services.vacuum-plejd.loadbalancer.server.port=5002"
-        - "traefik.docker.network=ingress_network"
+        - "traefik.enable=false"
       resources:
         limits:
           memory: 64m
         reservations:
           memory: 32m
     secrets:
-      - plejd_api_key
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: ["python", "plejd_trigger.py"]
-
-  nodered:
-    image: mediaserver:5000/nodered:latest
-    networks:
-      - ingress_network
-    deploy:
-      replicas: 1
-      placement:
-        constraints: [node.hostname == mediaserver] # Bluetooth on mediaserver
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.nodered.rule=Host(`vacuum.granbacken`) && PathPrefix(`/nodered`)"
-        - "traefik.http.routers.nodered.entrypoints=web,websecure"
-        - "traefik.http.routers.nodered.tls=true"
-        - "traefik.http.services.nodered.loadbalancer.server.port=1880"
-        - "traefik.docker.network=ingress_network"
-      resources:
-        limits:
-          memory: 128m
-        reservations:
-          memory: 64m
-    volumes:
-      - nodered_data:/data
-    devices:
-      - /dev/ttyACM0:/dev/ttyACM0  # Bluetooth adapter
-
-volumes:
-  nodered_data:
+      - verisure_username
+      - verisure_password
 
 networks:
   ingress_network:
@@ -90,5 +54,7 @@ secrets:
     external: true
   xiaomi_password:
     external: true
-  plejd_api_key:
+  verisure_username:
+    external: true
+  verisure_password:
     external: true

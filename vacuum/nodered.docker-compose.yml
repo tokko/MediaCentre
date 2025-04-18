@@ -1,0 +1,27 @@
+  nodered:
+    image: mediaserver:5000/nodered:latest
+    networks:
+      - ingress_network
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.hostname == mediaserver] # Bluetooth on mediaserver
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.nodered.rule=Host(`vacuum.granbacken`) && PathPrefix(`/nodered`)"
+        - "traefik.http.routers.nodered.entrypoints=web,websecure"
+        - "traefik.http.routers.nodered.tls=true"
+        - "traefik.http.services.nodered.loadbalancer.server.port=1880"
+        - "traefik.docker.network=ingress_network"
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 64m
+    volumes:
+      - nodered_data:/data
+    devices:
+      - /dev/ttyACM0:/dev/ttyACM0  # Bluetooth adapter
+
+volumes:
+  nodered_data:
