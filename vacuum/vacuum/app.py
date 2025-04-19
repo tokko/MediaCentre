@@ -145,7 +145,7 @@ def control_vacuums(action, device_id=None, autostart=False):
                 # Start monitoring in a separate thread
                 threading.Thread(target=monitor_cleaning_completion, args=(vac,), daemon=True).start()
             elif action == "stop":
-                vac["device"].stop()
+    #            vac["device"].stop()
                 vac["device"].home()
                 status = "Stopped and sent to dock"
                 last_cleaning_finished[vac["device_id"]] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())

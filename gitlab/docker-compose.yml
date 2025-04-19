@@ -1,0 +1,175 @@
+version: '3.8'
+
+services:
+  gitlab:
+    image: sameersbn/gitlab:latest
+    networks:
+      - traefik_public
+      - internal
+    environment:
+      - GITLAB_HOST=gitlab.granbacken
+      - GITLAB_PORT=443
+      - GITLAB_HTTPS=true
+      - SSL_SELF_SIGNED=false
+      - GITLAB_ROOT_PASSWORD=changeme123
+      - GITLAB_SECRETS_DB_KEY_BASE=CFf7sS3kV2nGXBtMHDsTcjkRX8PWLlKTPJMc3lRc6GCzJDdVljZ85NkkzJ8mZbM5
+      - GITLAB_SECRETS_SECRET_KEY_BASE=h2LBVffktDgb6BxM3B97mDSjhnSNwLc5VL2Hqzq9cdrvBtVw48WSp5wKj5HZrJM5
+      - GITLAB_SECRETS_OTP_KEY_BASE=t9LPjnLzbkJ7Nt6LZJj6hptdpgG58MPJPwnMMMDdx27KSwLWHDrz9bMWXQMjq5mp
+      - GITLAB_SSH_PORT=2222
+      - DB_ADAPTER=postgresql
+      - DB_HOST=postgresql
+      - DB_USER=gitlab
+      - DB_PASS=gitlabdbpass
+      - DB_NAME=gitlabhq_production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - /var/data/gitlab/gitlab:/home/git/data:Z
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+          - node.hostname != slave1
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.gitlab.rule=Host(`gitlab.granbacken`)
+        - traefik.http.routers.gitlab.entrypoints=web,websecure
+        - traefik.http.routers.gitlab.tls=true
+        - traefik.http.services.gitlab.loadbalancer.server.port=80
+        - traefik.docker.network=traefik_public
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    ports:
+      - "2222:22"
+
+  postgresql:
+    image: sameersbn/postgresql:12-20200524
+    networks:
+      - internal
+    environment:
+      - DB_USER=gitlab
+      - DB_PASS=gitlabdbpass
+      - DB_NAME=gitlabhq_production
+      - DB_EXTENSION=pg_trgm
+    volumes:
+      - /var/data/gitlab/postgresql:/var/lib/postgresql:Z
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.hostname != slave1
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 256m
+
+  redis:
+    image: sameersbn/redis:latest
+    networks:
+      - internal
+    command:
+      - --loglevel warning
+    volumes:
+      - /var/data/gitlab/redis:/var/lib/redis:Z
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.hostname != slave1
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+
+  gitlab-runner-1:
+    image: gitlab/gitlab-runner:alpine
+    networks:
+      - internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/data/gitlab-runner-1:/etc/gitlab-runner:Z
+    environment:
+      - CI_SERVER_URL=https://gitlab.granbacken
+      - REGISTRATION_TOKEN=your_runner_token
+      - RUNNER_NAME=swarm-runner-1
+      - RUNNER_EXECUTOR=docker
+      - DOCKER_IMAGE=docker:stable
+      - DOCKER_VOLUMES=/var/run/docker.sock:/var/run/docker.sock
+      - RUNNER_TAG_LIST=swarm,build
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.hostname == cluster3
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+    command:
+      - register
+      - --non-interactive
+      - --locked=false
+      - --name=swarm-runner-1
+      - --executor=docker
+      - --docker-image=docker:stable
+      - --docker-volumes=/var/run/docker.sock:/var/run/docker.sock
+      - --url=https://gitlab.granbacken
+      - --registration-token=your_runner_token
+      - --tag-list=swarm,build
+
+  gitlab-runner-2:
+    image: gitlab/gitlab-runner:alpine
+    networks:
+      - internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/data/gitlab-runner-2:/etc/gitlab-runner:Z
+    environment:
+      - CI_SERVER_URL=https://gitlab.granbacken
+      - REGISTRATION_TOKEN=your_runner_token
+      - RUNNER_NAME=swarm-runner-2
+      - RUNNER_EXECUTOR=docker
+      - DOCKER_IMAGE=docker:stable
+      - DOCKER_VOLUMES=/var/run/docker.sock:/var/run/docker.sock
+      - RUNNER_TAG_LIST=swarm,build
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+          - node.hostname == cluster4
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+    command:
+      - register
+      - --non-interactive
+      - --locked=false
+      - --name=swarm-runner-2
+      - --executor=docker
+      - --docker-image=docker:stable
+      - --docker-volumes=/var/run/docker.sock:/var/run/docker.sock
+      - --url=https://gitlab.granbacken
+      - --registration-token=your_runner_token
+      - --tag-list=swarm,build
+
+networks:
+  traefik_public:
+    external: true
+  internal:
+    driver: overlay
+    ipam:
+      config:
+        - subnet: 172.16.3.0/24
