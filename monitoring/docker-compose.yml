@@ -60,8 +60,6 @@ services:
       - '--path.rootfs=/rootfs'
     deploy:
       mode: global
-      placement:
-        constraints: [node.role == manager]
 
   cadvisor:
     image: zcube/cadvisor:latest
@@ -77,8 +75,6 @@ services:
     user: "0:0"
     deploy:
       mode: global
-      placement:
-        constraints: [node.role == manager]
       resources:
         limits:
           memory: 128m

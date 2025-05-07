@@ -4,64 +4,74 @@ import time
 import requests
 import logging
 
-# Load credentials from secrets or environment variables
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Load credentials from secrets
 def load_credentials():
     try:
         username = os.read(os.open('/run/secrets/verisure_username', os.O_RDONLY), 1024).decode('utf-8').strip()
         password = os.read(os.open('/run/secrets/verisure_password', os.O_RDONLY), 1024).decode('utf-8').strip()
-    except (FileNotFoundError, OSError):
-        username = os.environ.get('USERNAME')
-        password = os.environ.get('PASSWORD')
-    if not username or not password:
-        raise ValueError("Verisure username and password must be provided via secrets or environment variables")
+        logging.debug(f"Loaded credentials: username={username[:3]}..., password={'*' * len(password)}")
+    except (FileNotFoundError, OSError) as e:
+        logging.error(f"Failed to load secrets: {str(e)}")
+        raise ValueError("Verisure username and password must be provided via secrets")
     return username, password
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-# Initialize session
-logging.debug("Logging in")
-USERNAME, PASSWORD = load_credentials()
-session = verisure.Session(USERNAME, PASSWORD)
-# Login without Multifactor Authentication
-installations = session.login()
-logging.debug(f"Login done: {installations}")
-# Or with Multicator Authentication, check your phone and mailbox
-#session.request_mfa()
-#installations = session.validate_mfa(input("code:"))
+# Initialize Verisure session
+def initialize_session(username, password):
+    session = verisure.Session(username, password)
+    installations = session.login()
+    logging.debug(f"Login successful: {installations}")
+    giids = {
+        inst['alias']: inst['giid']
+        for inst in installations['data']['account']['installations']
+    }
+    logging.debug(f"giids: {giids}")
+    session.set_giid(giids["Flyttblocksvägen"])
+    logging.debug("giid set to Flyttblocksvägen")
+    return session
 
-# Get the `giid` for your installation
-giids = {
-  inst['alias']: inst['giid']
-  for inst in installations['data']['account']['installations']
-}
-logging.debug(f"giids: {giids}")
-# {'MY STREET': '123456789000'}
-
-logging.debug("setting giid")
-# Set the giid
-session.set_giid(giids["Flyttblocksvägen"])
-logging.debug("giid set")
 # Vacuum service endpoints
-VACUUM_START_URL = "https://vacuum.granbacken/start"
-VACUUM_STOP_URL = "https://vacuum.granbacken/stop"
+VACUUM_START_URL = "http://vacuum.granbacken/start"
+VACUUM_STOP_URL = "http://vacuum.granbacken/stop"
 
-# Long poll for state changes
-last_state = None
-while True:
-    try:
-        logging.debug("polling")
-        status = session.request(session.arm_state())
-        logging.debug(f"status: {status}")
-        current_state = status.get('data', {}).get('installation', {}).get('armState', {}).get('statusType', 'Unknown')
-        if current_state != last_state:
+# Main polling loop
+def main():
+    username, password = load_credentials()
+    session = initialize_session(username, password)
+    
+    while True:
+        try:
+            logging.debug("Polling Verisure API")
+            status = session.request(session.arm_state())
+            logging.debug(f"Status: {status}")
+            current_state = status.get('data', {}).get('installation', {}).get('armState', {}).get('statusType', 'Unknown')
             logging.debug(f"Alarm status: {current_state}")
+            
             if current_state == "ARMED_AWAY":
-                requests.get(VACUUM_START_URL, verify=False)
+                requests.get(VACUUM_START_URL, verify=False, timeout=5)
                 logging.info("Sent start cleaning request")
             elif current_state == "DISARMED":
-                requests.get(VACUUM_STOP_URL, verify=False)
+                requests.get(VACUUM_STOP_URL, verify=False, timeout=5)
                 logging.info("Sent stop cleaning request")
-            last_state = current_state
-    except Exception as e:
-        logging.error(f"Error: {str(e)}")
-    time.sleep(60)
+                
+        except verisure.session.LoginError as e:
+            logging.error(f"Session expired (LoginError): {str(e)}")
+            logging.debug("Attempting to refresh session")
+            try:
+                session = initialize_session(username, password)
+                logging.info("Session refreshed successfully")
+            except verisure.session.LoginError as re:
+                logging.error(f"Failed to refresh session: {str(re)}")
+                time.sleep(60)  # Wait before retrying
+                continue
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Network error while sending vacuum command: {str(e)}")
+        except Exception as e:
+            logging.error(f"Unexpected error while polling: {str(e)}")
+        
+        time.sleep(60*10)
+
+if __name__ == "__main__":
+    main()
