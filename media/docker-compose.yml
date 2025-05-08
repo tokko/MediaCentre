@@ -1,18 +1,27 @@
 version: '3.8'
 
+# Define common environment variables for *arr stack and media servers
+x-media-common-env: &media-common-env
+  PUID: 1000
+  PGID: 1000
+  TZ: Europe/Stockholm
+
 services:
   postgres:
     image: postgres:15
     environment:
-      - POSTGRES_USER=media_user
-      - POSTGRES_PASSWORD=media_pass
-      - POSTGRES_DB=media
+      POSTGRES_USER: media_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_media_password
+      POSTGRES_DB: media
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     networks:
       - ingress_network
+    secrets:
+      - postgres_media_password
     deploy:
       placement:
         constraints:
@@ -22,21 +31,28 @@ services:
           memory: 512m
         reservations:
           memory: 256m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U media_user -d media"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   sonarr:
     image: linuxserver/sonarr:latest
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Stockholm
-      - DB_CONNECTION_STRING=Host=postgres;Port=5432;Database=sonarr;Username=media_user;Password=media_pass
-      - DB_LOG_CONNECTION_STRING=Host=postgres;Port=5432;Database=sonarr_log;Username=media_user;Password=media_pass
+      <<: *media-common-env
+      DB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=sonarr;Username=media_user;Password=${SONARR_DB_PASSWORD:-media_pass}"
+      DB_LOG_CONNECTION_STRING: "Host=postgres;Port=5432;Database=sonarr_log;Username=media_user;Password=${SONARR_DB_LOG_PASSWORD:-media_pass}"
     volumes:
       - /mnt/nfs_share/media/config/sonarr:/config
       - /mnt/nfs_share/media/tv:/tv
       - /mnt/nfs_share/media/downloads:/downloads
     networks:
       - ingress_network
+    depends_on: # Corrected: simple list for Swarm
+      - postgres
     deploy:
       placement:
         constraints:
@@ -53,21 +69,28 @@ services:
           memory: 512m
         reservations:
           memory: 256m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   radarr:
     image: linuxserver/radarr:latest
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Stockholm
-      - DB_LOG_CONNECTION_STRING=Host=postgres;Port=5432;Database=radarr_log;Username=media_user;Password=media_pass
-      - DB_CONNECTION_STRING=Host=postgres;Port=5432;Database=radarr;Username=media_user;Password=media_pass
+      <<: *media-common-env
+      DB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=radarr;Username=media_user;Password=${RADARR_DB_PASSWORD:-media_pass}"
+      DB_LOG_CONNECTION_STRING: "Host=postgres;Port=5432;Database=radarr_log;Username=media_user;Password=${RADARR_DB_LOG_PASSWORD:-media_pass}"
     volumes:
       - /mnt/nfs_share/media/config/radarr:/config
       - /mnt/nfs_share/media/movies:/movies
       - /mnt/nfs_share/media/downloads:/downloads
     networks:
       - ingress_network
+    depends_on: # Corrected
+      - postgres
     deploy:
       placement:
         constraints:
@@ -84,22 +107,30 @@ services:
           memory: 512m
         reservations:
           memory: 256m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   prowlarr:
     image: linuxserver/prowlarr:latest
     environment:
-      - PUID=911
-      - PGID=911
-      - LOG_LEVEL=trace
-      - PROXY_HOST=tor_proxy
-      - PROXY_PORT=9050
-      - DB_LOG_CONNECTION_STRING=Host=postgres;Port=5432;Database=prowlarr_log;Username=media_user;Password=media_pass
-      - DB_CONNECTION_STRING=Host=postgres;Port=5432;Database=prowlarr;Username=media_user;Password=media_pass
+      <<: *media-common-env
+      LOG_LEVEL: trace
+      PROXY_HOST: tor_proxy
+      PROXY_PORT: "9050" # Quoted for consistency
+      DB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=prowlarr;Username=media_user;Password=${PROWLARR_DB_PASSWORD:-media_pass}"
+      DB_LOG_CONNECTION_STRING: "Host=postgres;Port=5432;Database=prowlarr_log;Username=media_user;Password=${PROWLARR_DB_LOG_PASSWORD:-media_pass}"
     volumes:
       - /mnt/nfs_share/media/config/prowlarr:/config
-      - /mnt/nfs_share/media/config/prowlarr/prowlarr-indexers/Custom:/config/Indexers
     networks:
       - ingress_network
+    depends_on: # Corrected
+      - postgres
+      - tor_proxy # Still good to hint dependency on tor_proxy
     deploy:
       placement:
         constraints:
@@ -116,22 +147,28 @@ services:
           memory: 256m
         reservations:
           memory: 128m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   overseerr:
     image: sctx/overseerr:latest
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Stockholm
-      - DATABASE_URL=postgresql://media_user:media_pass@postgres:5432/overseerr
+      <<: *media-common-env
+      DATABASE_URL: "postgresql://media_user:${OVERSEERR_DB_PASSWORD:-media_pass}@postgres:5432/overseerr"
     volumes:
       - /mnt/nfs_share/media/config/overseerr:/app/config
     networks:
       - ingress_network
+    depends_on: # Corrected
+      - postgres
     deploy:
       placement:
         constraints:
-          - node.role == worker
           - node.hostname != slave1
       labels:
         - traefik.enable=true
@@ -144,24 +181,25 @@ services:
           memory: 256m
         reservations:
           memory: 128m
+      restart_policy:
+        condition: on-failure
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Stockholm
-      - DB_CONNECTION=postgresql://media_user:media_pass@postgres:5432/bazarr
+      <<: *media-common-env
+      DB_CONNECTION: "postgresql://media_user:${BAZARR_DB_PASSWORD:-media_pass}@postgres:5432/bazarr"
     volumes:
       - /mnt/nfs_share/media/config/bazarr:/config
-      - /mnt/nfs_share/media/tv:/tv # Must match Sonarr’s path
-      - /mnt/nfs_share/media/movies:/movies # Must match Radarr’s path
+      - /mnt/nfs_share/media/tv:/tv
+      - /mnt/nfs_share/media/movies:/movies
     networks:
       - ingress_network
+    depends_on: # Corrected
+      - postgres
     deploy:
       placement:
         constraints:
-          - node.role == worker
           - node.hostname != slave1
       labels:
         - traefik.enable=true
@@ -174,6 +212,8 @@ services:
           memory: 256m
         reservations:
           memory: 128m
+      restart_policy:
+        condition: on-failure
 
   transmission:
     image: haugene/transmission-openvpn:latest
@@ -181,8 +221,8 @@ services:
       - PUID=1000
       - PGID=1000
       - OPENVPN_PROVIDER=NORDVPN
-      - OPENVPN_USERNAME=6LF3z2srZKveb6qm6hiUJUmx
-      - OPENVPN_PASSWORD=ZEC6inpHbH8psyHL1TguLeV4
+      - OPENVPN_USERNAME_FILE=/run/secrets/nordvpn_username
+      - OPENVPN_PASSWORD_FILE=/run/secrets/nordvpn_password
       - OPENVPN_CONFIG=sg514
       - TRANSMISSION_DOWNLOAD_DIR=/downloads/completed
       - TRANSMISSION_INCOMPLETE_DIR=/downloads/incomplete
@@ -192,6 +232,14 @@ services:
       - /mnt/nfs_share/media/config/transmission:/config
     networks:
       - ingress_network
+    secrets:
+      - nordvpn_username
+      - nordvpn_password
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "51413:51413"
+      - "51413:51413/udp"
     deploy:
       placement:
         constraints:
@@ -207,16 +255,17 @@ services:
           memory: 256m
         reservations:
           memory: 128m
-    cap_add:
-      - NET_ADMIN
-    ports:
-      - "51413:51413"
-      - "51413:51413/udp"
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9091/transmission/web/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   tor_proxy:
     image: dperson/torproxy:latest
-    ports:
-      - "9050:9050"
     networks:
       - ingress_network
     deploy:
@@ -228,19 +277,21 @@ services:
           memory: 128m
         reservations:
           memory: 64m
+      restart_policy:
+        condition: on-failure
 
-  plex:
-    image: linuxserver/plex:latest
+  jellyfin:
+    image: linuxserver/jellyfin:latest
     environment:
-      - PUID=1000
-      - PGID=1000
-      - PLEX_CLAIM=claim-fVcPQGeBVfDqcbYBx1r_
-      - TZ=Europe/Stockholm
+      <<: *media-common-env
     volumes:
-      - /mnt/nfs_share/media/config/plex:/config
-      - /mnt/nfs_share/media/movies:/movies
-      - /mnt/nfs_share/media/tv:/tv
-      - /mnt/nfs_share/media/music:/music
+      - /mnt/nfs_share/media/config/jellyfin:/config
+      - /mnt/nfs_share/media/movies:/data/movies
+      - /mnt/nfs_share/media/tv:/data/tv
+      - /mnt/nfs_share/media/music:/data/music
+      - /dev/shm:/transcode
+    devices:
+      - /dev/dri:/dev/dri
     networks:
       - ingress_network
     deploy:
@@ -249,15 +300,23 @@ services:
           - node.hostname == mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.plex.rule=Host(`plex.granbacken`)
-        - traefik.http.routers.plex.entrypoints=web
-        - traefik.http.services.plex.loadbalancer.server.port=32400
+        - traefik.http.routers.jellyfin.rule=Host(`jellyfin.granbacken`)
+        - traefik.http.routers.jellyfin.entrypoints=web
+        - traefik.http.services.jellyfin.loadbalancer.server.port=8096
         - traefik.docker.network=ingress_network
       resources:
         limits:
-          memory: 512m
+          memory: 1024m
         reservations:
-          memory: 256m
+          memory: 512m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
 
 volumes:
   postgres_data:
@@ -269,4 +328,12 @@ volumes:
 
 networks:
   ingress_network:
+    external: true
+
+secrets:
+  postgres_media_password:
+    external: true
+  nordvpn_username:
+    external: true
+  nordvpn_password:
     external: true

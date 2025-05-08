@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+# The main 'media' database is created by POSTGRES_DB env var
+# We need to create the others and grant privileges
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    CREATE DATABASE sonarr;
+    GRANT ALL PRIVILEGES ON DATABASE sonarr TO $POSTGRES_USER;
+    CREATE DATABASE sonarr_log;
+    GRANT ALL PRIVILEGES ON DATABASE sonarr_log TO $POSTGRES_USER;
+
+    CREATE DATABASE radarr;
+    GRANT ALL PRIVILEGES ON DATABASE radarr TO $POSTGRES_USER;
+    CREATE DATABASE radarr_log;
+    GRANT ALL PRIVILEGES ON DATABASE radarr_log TO $POSTGRES_USER;
+
+    CREATE DATABASE prowlarr;
+    GRANT ALL PRIVILEGES ON DATABASE prowlarr TO $POSTGRES_USER;
+    CREATE DATABASE prowlarr_log;
+    GRANT ALL PRIVILEGES ON DATABASE prowlarr_log TO $POSTGRES_USER;
+
+    CREATE DATABASE overseerr;
+    GRANT ALL PRIVILEGES ON DATABASE overseerr TO $POSTGRES_USER;
+
+    CREATE DATABASE bazarr;
+    GRANT ALL PRIVILEGES ON DATABASE bazarr TO $POSTGRES_USER;
+EOSQL
+
+echo "All media databases created and privileges granted."
