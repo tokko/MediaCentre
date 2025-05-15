@@ -57,6 +57,7 @@ services:
       placement:
         constraints:
           - node.hostname != slave1
+          - node.hostname != mediaserver
       labels:
         - traefik.enable=true
         - traefik.http.routers.sonarr.rule=Host(`sonarr.granbacken`)
@@ -94,6 +95,7 @@ services:
       placement:
         constraints:
           - node.hostname != slave1
+          - node.hostname != mediaserver
       labels:
         - traefik.enable=true
         - traefik.http.routers.radarr.rule=Host(`radarr.granbacken`)
@@ -133,6 +135,7 @@ services:
       placement:
         constraints:
           - node.hostname != slave1
+          - node.hostname != mediaserver
       labels:
         - traefik.enable=true
         - traefik.http.routers.prowlarr.rule=Host(`prowlarr.granbacken`)
@@ -167,6 +170,7 @@ services:
       placement:
         constraints:
           - node.hostname != slave1
+          - node.hostname != mediaserver
       labels:
         - traefik.enable=true
         - traefik.http.routers.overseerr.rule=Host(`overseerr.granbacken`)
@@ -198,6 +202,7 @@ services:
       placement:
         constraints:
           - node.hostname != slave1
+          - node.hostname != mediaserver
       labels:
         - traefik.enable=true
         - traefik.http.routers.bazarr.rule=Host(`bazarr.granbacken`)
