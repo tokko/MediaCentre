@@ -39,7 +39,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.hostname == slave1
+          - node.role == worker
       resources:
         limits:
           memory: 128m

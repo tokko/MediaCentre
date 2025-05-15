@@ -56,7 +56,6 @@ services:
     deploy:
       placement:
         constraints:
-          - node.role == worker
           - node.hostname != slave1
       labels:
         - traefik.enable=true
@@ -94,7 +93,6 @@ services:
     deploy:
       placement:
         constraints:
-          - node.role == worker
           - node.hostname != slave1
       labels:
         - traefik.enable=true
@@ -134,7 +132,6 @@ services:
     deploy:
       placement:
         constraints:
-          - node.role == worker
           - node.hostname != slave1
       labels:
         - traefik.enable=true
@@ -290,6 +287,8 @@ services:
       - /mnt/nfs_share/media/tv:/data/tv
       - /mnt/nfs_share/media/music:/data/music
       - /dev/shm:/transcode
+    ports:
+      - "8096:8096"
     devices:
       - /dev/dri:/dev/dri
     networks:
@@ -300,7 +299,7 @@ services:
           - node.hostname == mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.jellyfin.rule=Host(`jellyfin.granbacken`)
+        - traefik.http.routers.jellyfin.rule=Host(`jellyfin.granbacken`) || Host(`jellyfin`) || Host(`jellyfin.granbacken.tplinkdns.com`)
         - traefik.http.routers.jellyfin.entrypoints=web
         - traefik.http.services.jellyfin.loadbalancer.server.port=8096
         - traefik.docker.network=ingress_network
