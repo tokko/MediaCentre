@@ -7,37 +7,6 @@ x-media-common-env: &media-common-env
   TZ: Europe/Stockholm
 
 services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: media_user
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_media_password
-      POSTGRES_DB: media
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./postgres-init:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
-    networks:
-      - ingress_network
-    secrets:
-      - postgres_media_password
-    deploy:
-      placement:
-        constraints:
-          - node.hostname == mediaserver
-      resources:
-        limits:
-          memory: 512m
-        reservations:
-          memory: 256m
-      restart_policy:
-        condition: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U media_user -d media"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   sonarr:
     image: linuxserver/sonarr:latest
@@ -46,9 +15,9 @@ services:
       DB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=sonarr;Username=media_user;Password=${SONARR_DB_PASSWORD:-media_pass}"
       DB_LOG_CONNECTION_STRING: "Host=postgres;Port=5432;Database=sonarr_log;Username=media_user;Password=${SONARR_DB_LOG_PASSWORD:-media_pass}"
     volumes:
-      - /mnt/nfs_share/media/config/sonarr:/config
-      - /mnt/nfs_share/media/tv:/tv
-      - /mnt/nfs_share/media/downloads:/downloads
+      - /mnt/data/config_nsf/sonarr:/config
+      - /mnt/data/media/tv:/tv
+      - /mnt/data/media/downloads:/downloads
     networks:
       - ingress_network
     depends_on: # Corrected: simple list for Swarm
@@ -60,7 +29,7 @@ services:
           - node.hostname != mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.sonarr.rule=Host(`sonarr.granbacken`)
+        - traefik.http.routers.sonarr.rule=Host(`sonarr`)
         - traefik.http.routers.sonarr.entrypoints=web
         - traefik.http.services.sonarr.loadbalancer.server.port=8989
         - traefik.docker.network=ingress_network
@@ -84,9 +53,9 @@ services:
       DB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=radarr;Username=media_user;Password=${RADARR_DB_PASSWORD:-media_pass}"
       DB_LOG_CONNECTION_STRING: "Host=postgres;Port=5432;Database=radarr_log;Username=media_user;Password=${RADARR_DB_LOG_PASSWORD:-media_pass}"
     volumes:
-      - /mnt/nfs_share/media/config/radarr:/config
-      - /mnt/nfs_share/media/movies:/movies
-      - /mnt/nfs_share/media/downloads:/downloads
+      - /mnt/data/config_nfs/radarr:/config
+      - /mnt/data/media/movies:/movies
+      - /mnt/data/media/downloads:/downloads
     networks:
       - ingress_network
     depends_on: # Corrected
@@ -98,7 +67,7 @@ services:
           - node.hostname != mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.radarr.rule=Host(`radarr.granbacken`)
+        - traefik.http.routers.radarr.rule=Host(`radarr`)
         - traefik.http.routers.radarr.entrypoints=web
         - traefik.http.services.radarr.loadbalancer.server.port=7878
         - traefik.docker.network=ingress_network
@@ -125,7 +94,7 @@ services:
       DB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=prowlarr;Username=media_user;Password=${PROWLARR_DB_PASSWORD:-media_pass}"
       DB_LOG_CONNECTION_STRING: "Host=postgres;Port=5432;Database=prowlarr_log;Username=media_user;Password=${PROWLARR_DB_LOG_PASSWORD:-media_pass}"
     volumes:
-      - /mnt/nfs_share/media/config/prowlarr:/config
+      - /mnt/data/config_nfs/prowlarr:/config
     networks:
       - ingress_network
     depends_on: # Corrected
@@ -138,7 +107,7 @@ services:
           - node.hostname != mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.prowlarr.rule=Host(`prowlarr.granbacken`)
+        - traefik.http.routers.prowlarr.rule=Host(`prowlarr
         - traefik.http.routers.prowlarr.entrypoints=web
         - traefik.http.services.prowlarr.loadbalancer.server.port=9696
         - traefik.docker.network=ingress_network
@@ -159,9 +128,8 @@ services:
     image: sctx/overseerr:latest
     environment:
       <<: *media-common-env
-      DATABASE_URL: "postgresql://media_user:${OVERSEERR_DB_PASSWORD:-media_pass}@postgres:5432/overseerr"
     volumes:
-      - /mnt/nfs_share/media/config/overseerr:/app/config
+      - /mnt/data/config_local/overseerr:/app/config
     networks:
       - ingress_network
     depends_on: # Corrected
@@ -169,11 +137,10 @@ services:
     deploy:
       placement:
         constraints:
-          - node.hostname != slave1
-          - node.hostname != mediaserver
+          - node.hostname == mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.overseerr.rule=Host(`overseerr.granbacken`)
+        - traefik.http.routers.overseerr.rule=Host(`overseerr`)
         - traefik.http.routers.overseerr.entrypoints=web
         - traefik.http.services.overseerr.loadbalancer.server.port=5055
         - traefik.docker.network=ingress_network
@@ -191,9 +158,9 @@ services:
       <<: *media-common-env
       DB_CONNECTION: "postgresql://media_user:${BAZARR_DB_PASSWORD:-media_pass}@postgres:5432/bazarr"
     volumes:
-      - /mnt/nfs_share/media/config/bazarr:/config
-      - /mnt/nfs_share/media/tv:/tv
-      - /mnt/nfs_share/media/movies:/movies
+      - /mnt/data/config_nfs/bazarr:/config
+      - /mnt/data/media/tv:/tv
+      - /mnt/data/media/movies:/movies
     networks:
       - ingress_network
     depends_on: # Corrected
@@ -205,7 +172,7 @@ services:
           - node.hostname != mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.bazarr.rule=Host(`bazarr.granbacken`)
+        - traefik.http.routers.bazarr.rule=Host(`bazarr`)
         - traefik.http.routers.bazarr.entrypoints=web
         - traefik.http.services.bazarr.loadbalancer.server.port=6767
         - traefik.docker.network=ingress_network
@@ -217,80 +184,16 @@ services:
       restart_policy:
         condition: on-failure
 
-  transmission:
-    image: haugene/transmission-openvpn:latest
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - OPENVPN_PROVIDER=NORDVPN
-      - OPENVPN_USERNAME_FILE=/run/secrets/nordvpn_username
-      - OPENVPN_PASSWORD_FILE=/run/secrets/nordvpn_password
-      - OPENVPN_CONFIG=sg514
-      - TRANSMISSION_DOWNLOAD_DIR=/downloads/completed
-      - TRANSMISSION_INCOMPLETE_DIR=/downloads/incomplete
-      - LOCAL_NETWORK=192.168.68.0/24
-    volumes:
-      - /mnt/nfs_share/media/downloads:/downloads
-      - /mnt/nfs_share/media/config/transmission:/config
-    networks:
-      - ingress_network
-    secrets:
-      - nordvpn_username
-      - nordvpn_password
-    cap_add:
-      - NET_ADMIN
-    ports:
-      - "51413:51413"
-      - "51413:51413/udp"
-    deploy:
-      placement:
-        constraints:
-          - node.hostname == mediaserver
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.transmission.rule=Host(`transmission.granbacken`)
-        - traefik.http.routers.transmission.entrypoints=web
-        - traefik.http.services.transmission.loadbalancer.server.port=9091
-        - traefik.docker.network=ingress_network
-      resources:
-        limits:
-          memory: 256m
-        reservations:
-          memory: 128m
-      restart_policy:
-        condition: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9091/transmission/web/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  tor_proxy:
-    image: dperson/torproxy:latest
-    networks:
-      - ingress_network
-    deploy:
-      placement:
-        constraints:
-          - node.hostname == mediaserver
-      resources:
-        limits:
-          memory: 128m
-        reservations:
-          memory: 64m
-      restart_policy:
-        condition: on-failure
 
   jellyfin:
     image: linuxserver/jellyfin:latest
     environment:
       <<: *media-common-env
     volumes:
-      - /mnt/nfs_share/media/config/jellyfin:/config
-      - /mnt/nfs_share/media/movies:/data/movies
-      - /mnt/nfs_share/media/tv:/data/tv
-      - /mnt/nfs_share/media/music:/data/music
+      - /mnt/data/config_local/jellyfin:/config
+      - /mnt/data/media/movies:/data/movies
+      - /mnt/data/media/tv:/data/tv
+      - /mnt/data/media/music:/data/music
       - /dev/shm:/transcode
     ports:
       - "8096:8096"
@@ -304,7 +207,7 @@ services:
           - node.hostname == mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.jellyfin.rule=Host(`jellyfin.granbacken`) || Host(`jellyfin`) || Host(`jellyfin.granbacken.tplinkdns.com`)
+        - traefik.http.routers.jellyfin.rule=Host(`jellyfin`) || Host(`jellyfin.granbacken.tplinkdns.com`)
         - traefik.http.routers.jellyfin.entrypoints=web
         - traefik.http.services.jellyfin.loadbalancer.server.port=8096
         - traefik.docker.network=ingress_network
@@ -322,21 +225,11 @@ services:
       retries: 3
       start_period: 120s
 
-volumes:
-  postgres_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /mnt/nfs_share/media/config/postgresql
-
 networks:
   ingress_network:
     external: true
 
 secrets:
-  postgres_media_password:
-    external: true
   nordvpn_username:
     external: true
   nordvpn_password:

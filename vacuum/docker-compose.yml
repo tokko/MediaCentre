@@ -1,65 +1,71 @@
-version: '3.8'
+version: "3.8"
 
 services:
   vacuum:
     image: mediaserver:5000/vacuum:latest
-    secrets:
-      - source: xiaomi_username
-        target: xiaomi_username
-      - source: xiaomi_password
-        target: xiaomi_password
     networks:
       - ingress_network
     deploy:
-      placement:
-        constraints:
-          - node.role == worker
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.vacuum.rule=Host(`vacuum.granbacken`)
-        - traefik.http.routers.vacuum.entrypoints=web
-        - traefik.http.services.vacuum.loadbalancer.server.port=5001
-        - traefik.docker.network=ingress_network
       replicas: 2
-      resources:
-        limits:
-          memory: 256m
-        reservations:
-          memory: 128m
-
-  alarm_poller:
-    image: mediaserver:5000/alarm_poller:latest
-    secrets:
-      - source: verisure_username
-        target: verisure_username
-      - source: verisure_password
-        target: verisure_password
-    networks:
-      - ingress_network
-    deploy:
-      placement:
-        constraints:
-          - node.role == worker
+      placement: {}
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.vacuum.rule=Host(`vacuum.granbacken`)"
+        - "traefik.http.routers.vacuum.entrypoints=web,websecure"
+        - "traefik.http.routers.vacuum.tls=true"
+        - "traefik.http.services.vacuum.loadbalancer.server.port=5001"
+        - "traefik.docker.network=ingress_network"
       resources:
         limits:
           memory: 128m
         reservations:
           memory: 64m
+    environment:
+      XIAOMI_USERNAME_FILE: /run/secrets/xiaomi_username
+      XIAOMI_PASSWORD_FILE: /run/secrets/xiaomi_password
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - source: xiaomi_username
+        target: xiaomi_username
+      - source: xiaomi_password
+        target: xiaomi_password
 
-secrets:
-  verisure_username:
-    external: true
-    name: verisure_username
-  verisure_password:
-    external: true
-    name: verisure_password
-  xiaomi_username:
-    external: true
-    name: xiaomi_username
-  xiaomi_password:
-    external: true
-    name: xiaomi_password
+  alarm_poller:
+    image: mediaserver:5000/alarm_poller:latest
+    networks:
+      - ingress_network
+    deploy:
+      placement: {}
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 64m
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      VERISURE_USERNAME_FILE: /run/secrets/verisure_username
+      VERISURE_PASSWORD_FILE: /run/secrets/verisure_password
+    secrets:
+      - source: verisure_username
+        target: verisure_username
+      - source: verisure_password
+        target: verisure_password
 
 networks:
   ingress_network:
+    external: true
+
+secrets:
+  xiaomi_username:
+    external: true
+  xiaomi_password:
+    external: true
+  verisure_username:
+    external: true
+  verisure_password:
     external: true

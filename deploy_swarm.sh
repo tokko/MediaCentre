@@ -40,7 +40,7 @@ check_and_create_secret "verisure_password" "Verisure password secret not found.
 # Deploy infra stack
 echo "Deploying infra stack..."
 
-#docker stack deploy -c infra/docker-compose.yml infra 
+docker stack deploy -c infra/docker-compose.yml infra 
 # Verify registry
 #check_registry
 
@@ -71,7 +71,7 @@ echo "Deploying GitLab stack..."
 
 # Deploy media stack
 echo "Deploying media stack..."
-#docker stack deploy -c media/docker-compose.yml media
+docker stack deploy -c media/docker-compose.yml media
 
 # Deploy monitoring stack
 echo "Deploying monitoring stack..."

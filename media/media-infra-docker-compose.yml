@@ -1,0 +1,113 @@
+version: '3.8'
+
+# Define common environment variables for *arr stack and media servers
+x-media-common-env: &media-common-env
+  PUID: 1000
+  PGID: 1000
+  TZ: Europe/Stockholm
+services:
+  transmission:
+    image: haugene/transmission-openvpn:latest
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - OPENVPN_PROVIDER=NORDVPN
+      - OPENVPN_USERNAME=${NORDVPN_USERNAME}
+      - OPENVPN_PASSWORD=${NORDVPN_PASSWORD}
+        #- OPENVPN_USERNAME_FILE=/run/secrets/nordvpn_username
+        #- OPENVPN_PASSWORD_FILE=/run/secrets/nordvpn_password
+        #- OPENVPN_CONFIG=sg514
+        #- NORDVPN_COUNTRY=albania
+        #- NORDVPN_CATEGORY=legacy_p2p
+      - TRANSMISSION_DOWNLOAD_DIR=/downloads/completed
+      - TRANSMISSION_INCOMPLETE_DIR=/downloads/incomplete
+      - LOCAL_NETWORK=192.168.68.0/24
+    volumes:
+      - /mnt/data/media/downloads:/downloads
+      - /mnt/data/config_local/transmission:/config
+    networks:
+      - ingress_network   
+    secrets:
+      - source: nordvpn_username
+        target: nordvpn_username # Name of the file inside the container
+      - source: nordvpn_password
+        target: nordvpn_password # Name of the file inside the container
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "51413:51413"
+      - "51413:51413/udp"
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.transmission.rule=Host(`transmission`)
+        - traefik.http.routers.transmission.entrypoints=web
+        - traefik.http.services.transmission.loadbalancer.server.port=9091
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9091/transmission/web/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: media_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_media_password
+      POSTGRES_DB: media
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - ingress_network
+    secrets:
+      - postgres_media_password
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 256m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U media_user -d media"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/data/config_local/postgresql
+
+networks:
+  ingress_network:
+    external: true
+
+secrets:
+  postgres_media_password:
+    external: true
+  nordvpn_username:
+    external: true
+  nordvpn_password:
+    external: true

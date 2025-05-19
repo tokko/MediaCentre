@@ -13,7 +13,7 @@ services:
         constraints: [node.role == manager]
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.portainer.rule=Host(`portainer.granbacken`)"
+        - "traefik.http.routers.portainer.rule=Host(`portainer`)"
         - "traefik.http.routers.portainer.entrypoints=web,websecure"
         - "traefik.http.routers.portainer.tls=true"
         - "traefik.http.services.portainer.loadbalancer.server.port=9000"
@@ -39,16 +39,12 @@ services:
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
       - DISABLE_HTTP=false
     deploy:
-      placement:
-        constraints: [node.role == manager]
-
+      mode: global
   registry:
     image: registry:2
     environment:
       - REGISTRY_HTTP_UPLOAD_TIMEOUT=120s
       - REGISTRY_HTTP_SECRET=tHnDeAhDo3+OZhaPFTUpcOHtkqQUahR8YWALO1bauDA=
-    volumes:
-      - registry_data:/var/lib/registry
     networks:
       - ingress_network
     ports:
@@ -65,12 +61,6 @@ services:
 
 volumes:
   portainer_data:
-  registry_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /var/data/registry
 
 networks:
   ingress_network:
