@@ -18,11 +18,9 @@ services:
       DB_NAME: "sonarr"
       DB_LOG_NAME: "sonarr_log"
     volumes:
-      - sonarr_config:/config
-      - media_tv:/tv
-      - media_downloads:/downloads
-    ports:
-      - "8989:8989"
+      - /mnt/data/config_nfs/sonarr:/config
+      - /mnt/data/media/tv:/tv
+      - /mnt/data/media/downloads:/downloads
     networks:
       - ingress_network
     secrets:
@@ -59,11 +57,9 @@ services:
       DB_NAME: "radarr"
       DB_LOG_NAME: "radarr_log"
     volumes:
-      - radarr_config:/config
-      - media_movies:/movies
-      - media_downloads:/downloads
-    ports:
-      - "7878:7878"
+      - /mnt/data/config_nfs/radarr:/config
+      - /mnt/data/media/movies:/movies
+      - /mnt/data/media/downloads:/downloads
     networks:
       - ingress_network
     secrets:
@@ -100,10 +96,12 @@ services:
       DB_PASSWORD_FILE: "/run/secrets/postgres_media_password"
       DB_NAME: "prowlarr"
       DB_LOG_NAME: "prowlarr_log"
+      # If Prowlarr needs tor_proxy, and tor_proxy is removed, this will fail.
+      # Consider if Prowlarr still needs a proxy or if this should be removed.
+      # PROXY_HOST: tor_proxy 
+      # PROXY_PORT: "9050"
     volumes:
-      - prowlarr_config:/config
-    ports:
-      - "9696:9696"
+      - /mnt/data/config_nfs/prowlarr:/config
     networks:
       - ingress_network
     secrets:
@@ -128,19 +126,43 @@ services:
       restart_policy:
         condition: on-failure
 
+  overseerr:
+    image: sctx/overseerr:latest
+    environment:
+      <<: *media-common-env
+    volumes:
+      - /mnt/data/config_local/overseerr:/app/config
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.overseerr.rule=Host(`overseerr.local`)
+        - traefik.http.routers.overseerr.entrypoints=web
+        - traefik.http.services.overseerr.loadbalancer.server.port=5055
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+      restart_policy:
+        condition: on-failure
   ombi:
     image: linuxserver/ombi:latest
     environment:
-      <<: *media-common-env
-      PGHOST: postgres.local
-      PGPORT: 5432
-      PGDATABASE: ombi
-      PGUSER: media_user
-      PGPASSWORD_FILE: /run/secrets/postgres_media_password
+      <<: *media-common-env 
+      DB_TYPE: "PostgreSQL"
+      DB_HOST: "postgres.local"
+      DB_PORT: "5432"
+      DB_USERNAME: "media_user"
+      DB_PASSWORD_FILE: "/run/secrets/postgres_media_password"
+      DB_NAME: "ombi"
     volumes:
-      - ombi_config:/config
-    ports:
-      - "3579:3579"
+      - /mnt/data/config_nfs/ombi:/config
     networks:
       - ingress_network
     deploy:
@@ -166,11 +188,9 @@ services:
     environment:
       <<: *media-common-env
     volumes:
-      - bazarr_config:/config
-      - media_tv:/tv
-      - media_movies:/movies
-    ports:
-      - "6767:6767"
+      - /mnt/data/config_local/bazarr:/config
+      - /mnt/data/media/tv:/tv
+      - /mnt/data/media/movies:/movies
     networks:
       - ingress_network
     deploy:
@@ -191,15 +211,79 @@ services:
       restart_policy:
         condition: on-failure
 
+  subdownloader:
+    image: subdownloader/subdownloader:latest  # Verify the exact image name
+    environment:
+      <<: *media-common-env
+    volumes:
+      - /mnt/data/config_nfs/subdownloader:/config
+      - /mnt/data/media/tv:/tv
+      - /mnt/data/media/movies:/movies
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.subdownloader.rule=Host(`subdownloader.local`)
+        - traefik.http.routers.subdownloader.entrypoints=web
+        - traefik.http.services.subdownloader.loadbalancer.server.port=8080  # Verify the port
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+      restart_policy:
+        condition: on-failure
+
+  autobrr:
+    image: autobrr/autobrr:latest
+    environment:
+      <<: *media-common-env
+      AUTOBRR__DATABASE_TYPE: "postgres"
+      AUTOBRR__POSTGRES_HOST: "postgres.local"
+      AUTOBRR__POSTGRES_PORT: "5432"
+      AUTOBRR__POSTGRES_DATABASE: "autobrr"
+      AUTOBRR__POSTGRES_USER: "media_user"
+      AUTOBRR__POSTGRES_PASS_FILE: "/run/secrets/postgres_media_password"
+    volumes:
+      - /mnt/data/config_nfs/autobrr:/config
+      - /mnt/data/media/downloads:/downloads
+    networks:
+      - ingress_network
+    secrets:
+      - source: postgres_media_password
+        target: postgres_media_password
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.autobrr.rule=Host(`autobrr.local`)
+        - traefik.http.routers.autobrr.entrypoints=web
+        - traefik.http.services.autobrr.loadbalancer.server.port=7474
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+      restart_policy:
+        condition: on-failure
+
   jellyfin:
     image: linuxserver/jellyfin:latest
     environment:
       <<: *media-common-env
     volumes:
-      - jellyfin_config:/config
-      - media_movies:/data/movies
-      - media_tv:/data/tv
-      - media_music:/data/music
+      - /mnt/data/config_local/jellyfin:/config
+      - /mnt/data/media/movies:/data/movies
+      - /mnt/data/media/tv:/data/tv
+      - /mnt/data/media/music:/data/music
       - /dev/shm:/transcode
     ports:
       - "8096:8096"
@@ -224,36 +308,6 @@ services:
           memory: 512m
       restart_policy:
         condition: on-failure
-
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    environment:
-      <<: *media-common-env
-      LOG_LEVEL: "info"
-      LOG_HTML: "false"
-      CAPTCHA_SOLVER: "none"
-    ports:
-      - "8191:8191"
-    networks:
-      - ingress_network
-    deploy:
-      placement:
-        constraints:
-          - node.hostname == mediaserver
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.flaresolverr.rule=Host(`flaresolverr.local`)
-        - traefik.http.routers.flaresolverr.entrypoints=web
-        - traefik.http.services.flaresolverr.loadbalancer.server.port=8191
-        - traefik.docker.network=ingress_network
-      resources:
-        limits:
-          memory: 1024m
-        reservations:
-          memory: 512m
-      restart_policy:
-        condition: on-failure
-
 networks:
   ingress_network:
     external: true
@@ -265,77 +319,3 @@ secrets:
     external: true
   nordvpn_password:
     external: true
-
-volumes:
-  sonarr_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/sonarr
-  radarr_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/radarr
-  prowlarr_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/prowlarr
-  ombi_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/ombi
-  bazarr_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/bazarr
-  jellyfin_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/jellyfin
-  subdownloader_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/subdownloader
-  autobrr_config:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/autobrr
-  media_tv:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/tv
-  media_movies:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/movies
-  media_downloads:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/downloads
-  media_music:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/music

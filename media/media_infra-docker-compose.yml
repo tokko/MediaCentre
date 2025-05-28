@@ -1,10 +1,10 @@
-version: '3.8'
+version: '3.8' # This is a Docker Swarm stack file
 
-# Define common environment variables for *arr stack and media servers
 x-media-common-env: &media-common-env
-  PUID: 1000
-  PGID: 1000
-  TZ: Europe/Stockholm
+  PUID: "1000"
+  PGID: "1000"
+  TZ: "Europe/Stockholm"
+
 services:
   transmission:
     image: haugene/transmission-openvpn:latest
@@ -26,7 +26,7 @@ services:
       - /mnt/data/media/downloads:/downloads
       - /mnt/data/config_local/transmission:/config
     networks:
-      - ingress_network   
+      - ingress_network
     secrets:
       - source: nordvpn_username
         target: nordvpn_username # Name of the file inside the container
@@ -43,7 +43,7 @@ services:
           - node.hostname == mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.transmission.rule=Host(`transmission`)
+        - traefik.http.routers.transmission.rule=Host(`transmission.local`)
         - traefik.http.routers.transmission.entrypoints=web
         - traefik.http.services.transmission.loadbalancer.server.port=9091
         - traefik.docker.network=ingress_network
@@ -80,6 +80,12 @@ services:
       placement:
         constraints:
           - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.postgres.rule=Host(`postgres.local`)
+        - traefik.http.routers.postgres.entrypoints=web
+        - traefik.http.services.postgres.loadbalancer.server.port=5432
+        - traefik.docker.network=ingress_network
       resources:
         limits:
           memory: 512m
@@ -92,6 +98,35 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  torproxy:
+    image: dperson/torproxy:latest
+    environment:
+      <<: *media-common-env
+    ports:
+      - "9050:9050" # SOCKS5 port
+    networks:
+      - ingress_network
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.tcp.routers.torproxy.rule=HostSNI(`torproxy.local`)
+        - traefik.tcp.routers.torproxy.entrypoints=socks5
+        - traefik.tcp.services.torproxy.loadbalancer.server.port=9050
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 64m
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 9050 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 volumes:
   postgres_data:
     driver: local

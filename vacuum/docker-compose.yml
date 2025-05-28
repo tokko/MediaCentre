@@ -9,12 +9,11 @@ services:
       replicas: 2
       placement: {}
       labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.vacuum.rule=Host(`vacuum.granbacken`)"
-        - "traefik.http.routers.vacuum.entrypoints=web,websecure"
-        - "traefik.http.routers.vacuum.tls=true"
-        - "traefik.http.services.vacuum.loadbalancer.server.port=5001"
-        - "traefik.docker.network=ingress_network"
+        - traefik.enable=true
+        - traefik.http.routers.midarr.rule=Host(`vacuum.local`)
+        - traefik.http.routers.midarr.entrypoints=web
+        - traefik.http.services.midarr.loadbalancer.server.port=5001
+        - traefik.docker.network=ingress_network
       resources:
         limits:
           memory: 128m
@@ -45,7 +44,6 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
-        max_attempts: 3
         window: 120s
     environment:
       VERISURE_USERNAME_FILE: /run/secrets/verisure_username

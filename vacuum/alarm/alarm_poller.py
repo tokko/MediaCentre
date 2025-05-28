@@ -33,8 +33,8 @@ def initialize_session(username, password):
     return session
 
 # Vacuum service endpoints
-VACUUM_START_URL = "http://vacuum.granbacken/start"
-VACUUM_STOP_URL = "http://vacuum.granbacken/stop"
+VACUUM_START_URL = "http://vacuum.local/start"
+VACUUM_STOP_URL = "http://vacuum.local/stop"
 
 # Main polling loop
 def main():

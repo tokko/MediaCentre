@@ -20,11 +20,11 @@ services:
           - node.hostname == mediaserver
       labels:
         - traefik.enable=true
-        - traefik.http.routers.traefik.rule=Host(`traefik`)
+        - traefik.http.routers.traefik.rule=Host(`traefik.local`)
         - traefik.http.routers.traefik.service=api@internal
         - traefik.http.routers.traefik.entrypoints=web
         - traefik.http.services.traefik.loadbalancer.server.port=8080
-        - traefik.http.routers.metrics.rule=Host(`traefik`) && Path(`/metrics`)
+        - traefik.http.routers.metrics.rule=Host(`traefik.local`) && Path(`/metrics`)
         - traefik.http.routers.metrics.service=prometheus@internal
         - traefik.http.routers.metrics.entrypoints=traefik
     ports:
@@ -53,10 +53,10 @@ services:
       - ./unbound.conf:/etc/unbound/unbound.conf:ro
     networks:
       - ingress_network
-    dns:
-      - 213.80.98.2
-      - 1.1.1.1
-      - 8.8.8.8
+        # dns:
+        #- 213.80.98.2
+        #- 1.1.1.1
+        #- 8.8.8.8
 
 networks:
   ingress_network:

@@ -1,0 +1,68 @@
+  subdownloader:
+    image: subdownloader/subdownloader:latest
+    environment:
+      <<: *media-common-env
+    volumes:
+      - subdownloader_config:/config
+      - media_tv:/tv
+      - media_movies:/movies
+    ports:
+      - "8082:8080"
+    networks:
+      - ingress_network
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.subdownloader.rule=Host(`subdownloader.local`)
+        - traefik.http.routers.subdownloader.entrypoints=web
+        - traefik.http.services.subdownloader.loadbalancer.server.port=8082
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+      restart_policy:
+        condition: on-failure
+
+  autobrr:
+    image: autobrr/autobrr:latest
+    environment:
+      <<: *media-common-env
+      AUTOBRR__DATABASE_TYPE: "postgres"
+      AUTOBRR__POSTGRES_HOST: "postgres.local"
+      AUTOBRR__POSTGRES_PORT: "5432"
+      AUTOBRR__POSTGRES_DATABASE: "autobrr"
+      AUTOBRR__POSTGRES_USER: "media_user"
+      AUTOBRR__POSTGRES_PASS_FILE: "/run/secrets/postgres_media_password"
+    volumes:
+      - autobrr_config:/config
+      - media_downloads:/downloads
+    ports:
+      - "7474:7474"
+    networks:
+      - ingress_network
+    secrets:
+      - source: postgres_media_password
+        target: postgres_media_password
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.autobrr.rule=Host(`autobrr.local`)
+        - traefik.http.routers.autobrr.entrypoints=web
+        - traefik.http.services.autobrr.loadbalancer.server.port=7474
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
+      restart_policy:
+        condition: on-failure
+

@@ -1,0 +1,45 @@
+  midarr:
+    image: ghcr.io/midarrlabs/midarr-server:latest
+    environment:
+      <<: *media-common-env
+      APP_URL: "http://midarr.local:4000"
+      DB_USERNAME: "media_user"
+      DB_PASSWORD_FILE: "/run/secrets/postgres_media_password" # Assuming Midarr supports this
+      DB_DATABASE: "midarr"
+      DB_HOSTNAME: "postgres.local"
+      DB_PORT: "5432"
+      SETUP_ADMIN_EMAIL: "admin@example.com" # CHANGE
+      SETUP_ADMIN_NAME: "admin" # CHANGE
+      SETUP_ADMIN_PASSWORD: "password" # CHANGE
+      RADARR_BASE_URL: "http://radarr.local:7878"
+      RADARR_API_KEY: "YOUR_RADARR_API_KEY" # CHANGE
+      SONARR_BASE_URL: "http://sonarr.local:8989"
+      SONARR_API_KEY: "YOUR_SONARR_API_KEY" # CHANGE
+    volumes:
+      - /mnt/data/config_local/midarr:/config
+      - /mnt/data/media:/media
+    networks:
+      - ingress_network
+    secrets:
+      - source: postgres_media_password
+        target: postgres_media_password
+    depends_on:
+      - sonarr
+      - radarr
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == mediaserver
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.midarr.rule=Host(`midarr.local`)
+        - traefik.http.routers.midarr.entrypoints=web
+        - traefik.http.services.midarr.loadbalancer.server.port=4000
+        - traefik.docker.network=ingress_network
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 256m
+      restart_policy:
+        condition: on-failure
