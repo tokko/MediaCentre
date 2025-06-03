@@ -24,7 +24,7 @@ services:
       - LOCAL_NETWORK=192.168.68.0/24
     volumes:
       - /mnt/data/media/downloads:/downloads
-      - /mnt/data/config_local/transmission:/config
+      - /mnt/data/local_config/transmission:/config
     networks:
       - ingress_network
     secrets:
@@ -133,7 +133,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /mnt/data/config_local/postgresql
+      device: /mnt/data/local_config/postgresql
 
 networks:
   ingress_network:

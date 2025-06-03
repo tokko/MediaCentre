@@ -272,70 +272,70 @@ volumes:
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/sonarr
+      device: :/mnt/data/nfs_config/sonarr
   radarr_config:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/radarr
+      device: :/mnt/data/nfs_config/radarr
   prowlarr_config:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/prowlarr
+      device: :/mnt/data/nfs_config/prowlarr
   ombi_config:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/ombi
+      device: :/mnt/data/nfs_config/ombi
   bazarr_config:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/bazarr
+      device: :/mnt/data/nfs_config/bazarr
   jellyfin_config:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/jellyfin
+      device: :/mnt/data/nfs_config/jellyfin
   subdownloader_config:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/subdownloader
+      device: :/mnt/data/nfs_config/subdownloader
   autobrr_config:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/data/config_nfs/autobrr
+      device: :/mnt/data/nfs_config/autobrr
   media_tv:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/tv
+      device: :/mnt/media/tv
   media_movies:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/movies
+      device: :/mnt/media/movies
   media_downloads:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/downloads
+      device: :/mnt/media/downloads
   media_music:
     driver: local
     driver_opts:
       type: nfs
       o: addr=192.168.68.10,rw,sync
-      device: :/mnt/nfs/music
+      device: :/mnt/media/music
